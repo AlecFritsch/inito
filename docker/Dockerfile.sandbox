@@ -1,0 +1,33 @@
+FROM node:20-alpine
+
+# Install essential tools
+RUN apk add --no-cache \
+    git \
+    python3 \
+    py3-pip \
+    go \
+    make \
+    gcc \
+    g++ \
+    && rm -rf /var/cache/apk/*
+
+# Create non-root user for security
+RUN addgroup -g 1001 havoc && \
+    adduser -D -u 1001 -G havoc havoc
+
+# Create workspace directory
+WORKDIR /workspace
+
+# Set ownership
+RUN chown -R havoc:havoc /workspace
+
+# Switch to non-root user
+USER havoc
+
+# Set environment
+ENV HOME=/home/havoc
+ENV NPM_CONFIG_PREFIX=/home/havoc/.npm-global
+ENV PATH=$PATH:/home/havoc/.npm-global/bin
+
+# Default command (will be overridden)
+CMD ["sleep", "infinity"]
