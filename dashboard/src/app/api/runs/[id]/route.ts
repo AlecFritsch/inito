@@ -5,7 +5,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { userId } = await auth();
   
@@ -13,8 +13,10 @@ export async function GET(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const { id } = await params;
+
   try {
-    const response = await fetch(`${API_URL}/api/runs/${params.id}`, {
+    const response = await fetch(`${API_URL}/api/runs/${id}`, {
       headers: {
         'X-User-Id': userId,
       },
