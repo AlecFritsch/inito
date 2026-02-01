@@ -246,7 +246,8 @@ export async function countTokens(text: string): Promise<number> {
 export async function listModels(): Promise<string[]> {
   const ai = getClient();
   const modelList: string[] = [];
-  for await (const model of ai.models.list()) {
+  const pager = await ai.models.list();
+  for await (const model of pager) {
     if (model.name) {
       modelList.push(model.name);
     }
