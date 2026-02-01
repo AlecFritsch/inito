@@ -39,7 +39,8 @@ Fix login button not responding on mobile devices. Bug isolated to mobile viewpo
   ],
 };
 
-export default function RunDetailPage({ params }: { params: { id: string } }) {
+export default async function RunDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const run = runData;
 
   return (
