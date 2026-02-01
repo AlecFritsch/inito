@@ -8,7 +8,7 @@ WORKDIR /app
 
 # Copy dashboard package files
 COPY dashboard/package*.json ./
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 # Rebuild the source code only when needed
 FROM base AS builder
