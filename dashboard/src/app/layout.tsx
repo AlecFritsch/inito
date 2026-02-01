@@ -19,15 +19,21 @@ export default function RootLayout({
         baseTheme: dark,
         variables: {
           colorPrimary: '#fff',
-          colorBackground: '#050505',
-          colorInputBackground: '#0a0a0a',
-          colorInputText: '#f5f5f5',
-          colorText: '#f5f5f5',
-          colorTextSecondary: '#737373',
+          colorBackground: '#18181b',
+          colorInputBackground: '#27272a',
+          colorInputText: '#fafafa',
+          colorText: '#fafafa',
+          colorTextSecondary: '#a1a1aa',
+          borderRadius: '0.5rem',
         },
         elements: {
           formButtonPrimary: 'bg-white text-black hover:bg-white/90',
-          card: 'bg-[#050505] border border-[#1a1a1a]',
+          card: 'bg-[#18181b] border border-[#3f3f46] shadow-2xl',
+          headerTitle: 'text-white',
+          headerSubtitle: 'text-zinc-400',
+          socialButtonsBlockButton: 'bg-[#27272a] border-[#3f3f46] hover:bg-[#3f3f46]',
+          formFieldInput: 'bg-[#27272a] border-[#3f3f46]',
+          footerActionLink: 'text-white hover:text-zinc-300',
         },
       }}
     >
