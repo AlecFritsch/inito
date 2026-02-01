@@ -19,17 +19,21 @@ import { checkDocker, checkSandboxImage } from './sandbox/manager.js';
  * Start the Fastify server
  */
 async function startServer() {
+  const isProd = process.env.NODE_ENV === 'production';
+  
   const app = Fastify({
-    logger: {
-      level: env.logLevel,
-      transport: {
-        target: 'pino-pretty',
-        options: {
-          translateTime: 'HH:MM:ss Z',
-          ignore: 'pid,hostname'
+    logger: isProd 
+      ? { level: env.logLevel }
+      : {
+          level: env.logLevel,
+          transport: {
+            target: 'pino-pretty',
+            options: {
+              translateTime: 'HH:MM:ss Z',
+              ignore: 'pid,hostname'
+            }
+          }
         }
-      }
-    }
   });
 
   // Register CORS
