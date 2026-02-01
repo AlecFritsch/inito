@@ -178,26 +178,27 @@ program
 program
   .command('server')
   .description('Start the Havoc API server')
-  .action(async () => {
+  .option('--skip-docker-check', 'Skip Docker prerequisite check')
+  .action(async (options: { skipDockerCheck?: boolean }) => {
     console.log(chalk.cyan('\n🌀 Havoc - The Trust Layer for AI-Generated Code\n'));
     
-    // Check prerequisites
-    const spinner = ora('Checking prerequisites...').start();
-    
-    const dockerOk = await checkDocker();
-    if (!dockerOk) {
-      spinner.fail('Docker is not running');
-      console.log(chalk.red('\n❌ Please start Docker and try again\n'));
-      process.exit(1);
+    // Check prerequisites (optional in production containers)
+    if (!options.skipDockerCheck) {
+      const spinner = ora('Checking prerequisites...').start();
+      
+      const dockerOk = await checkDocker();
+      if (!dockerOk) {
+        spinner.warn('Docker not available - sandbox features disabled');
+        console.log(chalk.yellow('\n⚠️  Running without Docker sandbox support\n'));
+      } else {
+        const imageOk = await checkSandboxImage();
+        if (!imageOk) {
+          spinner.warn('Sandbox image not found');
+          console.log(chalk.yellow('\n⚠️  Build the sandbox image first: docker build -t havoc-sandbox -f docker/Dockerfile.sandbox .\n'));
+        }
+        spinner.succeed('Prerequisites checked');
+      }
     }
-    
-    const imageOk = await checkSandboxImage();
-    if (!imageOk) {
-      spinner.warn('Sandbox image not found');
-      console.log(chalk.yellow('\n⚠️  Build the sandbox image first: docker build -t havoc-sandbox -f docker/Dockerfile.sandbox .\n'));
-    }
-    
-    spinner.succeed('Prerequisites checked');
     
     await startServer();
   });
