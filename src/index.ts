@@ -97,7 +97,7 @@ async function startServer() {
   // Get run status endpoint
   app.get('/api/runs/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const run = getRun(id);
+    const run = await getRun(id);
 
     if (!run) {
       return reply.status(404).send({ error: 'Run not found' });
@@ -106,48 +106,48 @@ async function startServer() {
     return {
       id: run.id,
       repo: run.repo,
-      issue_number: run.issue_number,
+      issue_number: run.issueNumber,
       status: run.status,
       confidence: run.confidence,
-      pr_url: run.pr_url,
-      pr_number: run.pr_number,
+      pr_url: run.prUrl,
+      pr_number: run.prNumber,
       error: run.error,
-      started_at: run.started_at,
-      completed_at: run.completed_at
+      started_at: run.startedAt,
+      completed_at: run.completedAt
     };
   });
 
   // Get run intent card endpoint
   app.get('/api/runs/:id/intent-card', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const run = getRun(id);
+    const run = await getRun(id);
 
     if (!run) {
       return reply.status(404).send({ error: 'Run not found' });
     }
 
-    if (!run.intent_card) {
+    if (!run.intentCard) {
       return reply.status(404).send({ error: 'Intent card not yet generated' });
     }
 
     reply.header('Content-Type', 'text/markdown');
-    return run.intent_card;
+    return run.intentCard;
   });
 
   // List recent runs endpoint
   app.get('/api/runs', async (request, reply) => {
     const { limit } = request.query as { limit?: string };
-    const runs = getRecentRuns(limit ? parseInt(limit, 10) : 20);
+    const runs = await getRecentRuns(limit ? parseInt(limit, 10) : 20);
 
     return runs.map(run => ({
       id: run.id,
       repo: run.repo,
-      issue_number: run.issue_number,
+      issue_number: run.issueNumber,
       status: run.status,
       confidence: run.confidence,
-      pr_url: run.pr_url,
-      started_at: run.started_at,
-      completed_at: run.completed_at
+      pr_url: run.prUrl,
+      started_at: run.startedAt,
+      completed_at: run.completedAt
     }));
   });
 
@@ -289,7 +289,7 @@ program
   .action(async (runId: string) => {
     initDatabase();
     
-    const run = getRun(runId);
+    const run = await getRun(runId);
     if (!run) {
       console.log(chalk.red(`\n❌ Run not found: ${runId}\n`));
       process.exit(1);
@@ -298,15 +298,15 @@ program
     console.log(chalk.cyan('\n🌀 Havoc Run Status\n'));
     console.log(`Run ID:     ${run.id}`);
     console.log(`Repository: ${run.repo}`);
-    console.log(`Issue:      #${run.issue_number}`);
+    console.log(`Issue:      #${run.issueNumber}`);
     console.log(`Status:     ${run.status}`);
     
     if (run.confidence !== null) {
       console.log(`Confidence: ${run.confidence}%`);
     }
     
-    if (run.pr_url) {
-      console.log(`PR:         ${run.pr_url}`);
+    if (run.prUrl) {
+      console.log(`PR:         ${run.prUrl}`);
     }
     
     if (run.error) {

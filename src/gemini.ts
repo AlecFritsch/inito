@@ -245,6 +245,11 @@ export async function countTokens(text: string): Promise<number> {
  */
 export async function listModels(): Promise<string[]> {
   const ai = getClient();
-  const models = await ai.models.list();
-  return models.map(m => m.name || '').filter(Boolean);
+  const modelList: string[] = [];
+  for await (const model of ai.models.list()) {
+    if (model.name) {
+      modelList.push(model.name);
+    }
+  }
+  return modelList;
 }

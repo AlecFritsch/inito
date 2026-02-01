@@ -1,7 +1,7 @@
 import { join } from 'path';
 import { nanoid } from 'nanoid';
 import { env, loadHavocConfig, detectTestCommand, HavocConfig } from './config.js';
-import { createRun, updateRunStatus, updateRunPlan, updateRunArtifacts, updateRunPR, Run } from './db.js';
+import { createRun, updateRunStatus, updateRunPlan, updateRunArtifacts, updateRunPR, Run } from './db/index.js';
 import { createSandbox, Sandbox } from './sandbox/manager.js';
 import { SandboxRunner } from './sandbox/runner.js';
 import { cloneRepo, createBranch, commitAndPush, createPullRequest, addPRComment, addIssueComment, generateBranchName, getDefaultBranch } from './github/api.js';
@@ -58,10 +58,17 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
 
   try {
     // Initialize run in database
-    const run = createRun(runId, `${owner}/${repo}`, issueNumber, issueTitle, issueBody, {});
+    await createRun({
+      id: runId,
+      repo: `${owner}/${repo}`,
+      issueNumber,
+      issueTitle,
+      issueBody,
+      config: {}
+    });
     
     // Create sandbox container
-    updateRunStatus(runId, 'cloning');
+    await updateRunStatus(runId, 'cloning');
     console.log(`[Pipeline] Creating sandbox...`);
     sandbox = await createSandbox({ runId, workspaceDir });
     
@@ -85,20 +92,20 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     console.log(`[Pipeline] Created branch: ${branchName}`);
 
     // === ANALYZE ===
-    updateRunStatus(runId, 'analyzing');
+    await updateRunStatus(runId, 'analyzing');
     console.log(`[Pipeline] Analyzing issue...`);
     const analysis = await analyzeIssue(issueTitle, issueBody, runner);
     console.log(`[Pipeline] Issue type: ${analysis.spec.type}`);
 
     // === PLAN ===
-    updateRunStatus(runId, 'planning');
+    await updateRunStatus(runId, 'planning');
     console.log(`[Pipeline] Creating plan...`);
     const plan = await createPlan(analysis, runner);
-    updateRunPlan(runId, plan);
+    await updateRunPlan(runId, plan);
     console.log(`[Pipeline] Plan has ${plan.tasks.length} tasks`);
 
     // === EDIT ===
-    updateRunStatus(runId, 'editing');
+    await updateRunStatus(runId, 'editing');
     console.log(`[Pipeline] Executing tasks...`);
     const sortedTasks = sortTasks(plan.tasks);
     const taskResults = await executeTasks(sortedTasks, runner, havocConfig, {
@@ -113,7 +120,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     await runner.stageAll();
 
     // === TEST ===
-    updateRunStatus(runId, 'testing');
+    await updateRunStatus(runId, 'testing');
     console.log(`[Pipeline] Running tests...`);
     const testResults = await runTests(runner, havocConfig);
     console.log(`[Pipeline] Tests: ${testResults.passed ? 'PASSED' : 'FAILED'} (${testResults.pass_rate.toFixed(1)}%)`);
@@ -123,7 +130,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     console.log(`[Pipeline] Lint: ${lintResults.passed ? 'PASSED' : 'FAILED'}`);
 
     // === REVIEW ===
-    updateRunStatus(runId, 'reviewing');
+    await updateRunStatus(runId, 'reviewing');
     console.log(`[Pipeline] Self-reviewing changes...`);
     const review = await selfReview(taskResults, testResults, lintResults, {
       title: issueTitle,
@@ -150,7 +157,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     );
 
     // Update run with artifacts
-    updateRunArtifacts(runId, {
+    await updateRunArtifacts(runId, {
       intentCard: formatIntentCard(intentCard),
       review: review,
       confidence: confidenceScore,
@@ -158,7 +165,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     });
 
     // === PUBLISH ===
-    updateRunStatus(runId, 'publishing');
+    await updateRunStatus(runId, 'publishing');
 
     if (policyResult.passed) {
       // Commit and push changes
@@ -183,8 +190,8 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
       await addPRComment(owner, repo, pr.number, formatPolicyResult(policyResult), installationId);
 
       // Update run with PR info
-      updateRunPR(runId, pr.url, pr.number, branchName);
-      updateRunStatus(runId, 'done');
+      await updateRunPR(runId, pr.url, pr.number, branchName);
+      await updateRunStatus(runId, 'done');
 
       return {
         runId,
@@ -216,7 +223,7 @@ Run ID: \`${runId}\`
 
       await addIssueComment(owner, repo, issueNumber, failureMessage, installationId);
       
-      updateRunStatus(runId, 'failed', 'Policy gates not passed');
+      await updateRunStatus(runId, 'failed', 'Policy gates not passed');
 
       return {
         runId,
@@ -231,7 +238,7 @@ Run ID: \`${runId}\`
     console.error(`[Pipeline] Error:`, error);
     
     const errorMessage = error instanceof Error ? error.message : String(error);
-    updateRunStatus(runId, 'failed', errorMessage);
+    await updateRunStatus(runId, 'failed', errorMessage);
 
     // Try to post error to issue
     try {
@@ -261,7 +268,3 @@ Run ID: \`${runId}\`
   }
 }
 
-/**
- * Export for webhook handler
- */
-export { PipelineInput, PipelineResult };

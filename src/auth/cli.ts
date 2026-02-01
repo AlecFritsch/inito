@@ -66,13 +66,13 @@ function generateUserCode(): string {
  * Get pending auth by user code (for the web UI)
  */
 export function getPendingAuthByUserCode(userCode: string) {
-  for (const [deviceCode, auth] of pendingAuths) {
+  for (const [code, auth] of pendingAuths) {
     if (auth.userCode === userCode.toUpperCase() && auth.status === 'pending') {
       if (Date.now() > auth.expiresAt) {
         auth.status = 'expired';
         return null;
       }
-      return { deviceCode, ...auth };
+      return auth;
     }
   }
   return null;
