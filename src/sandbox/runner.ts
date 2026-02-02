@@ -8,10 +8,22 @@ export class SandboxRunner {
   private sandbox: Sandbox;
   private config: HavocConfig;
   private executedCommands: Array<{ command: string; result: ExecResult }> = [];
+  private onEvent?: (event: { type: string; message: string; data?: Record<string, unknown> }) => void;
 
-  constructor(sandbox: Sandbox, config: HavocConfig) {
+  constructor(
+    sandbox: Sandbox,
+    config: HavocConfig,
+    onEvent?: (event: { type: string; message: string; data?: Record<string, unknown> }) => void
+  ) {
     this.sandbox = sandbox;
     this.config = config;
+    this.onEvent = onEvent;
+  }
+
+  private emit(type: string, message: string, data?: Record<string, unknown>) {
+    if (this.onEvent) {
+      this.onEvent({ type, message, data });
+    }
   }
 
   /**
@@ -33,6 +45,7 @@ export class SandboxRunner {
     const parts = parseCommand(command);
     
     // Execute in sandbox
+    this.emit('command', command);
     const result = await this.sandbox.exec(['sh', '-c', command]);
     
     this.executedCommands.push({ command, result });
@@ -119,6 +132,7 @@ export class SandboxRunner {
    * Stage all changes
    */
   async stageAll(): Promise<ExecResult> {
+    this.emit('command', 'git add .');
     return this.sandbox.exec(['git', 'add', '.']);
   }
 
@@ -130,6 +144,7 @@ export class SandboxRunner {
     await this.sandbox.exec(['git', 'config', 'user.email', 'havoc@usehavoc.dev']);
     await this.sandbox.exec(['git', 'config', 'user.name', 'Havoc']);
     
+    this.emit('command', `git commit -m "${message}"`);
     return this.sandbox.exec(['git', 'commit', '-m', message]);
   }
 
@@ -137,6 +152,7 @@ export class SandboxRunner {
    * Read a file
    */
   async readFile(filePath: string): Promise<string | null> {
+    this.emit('file', `read ${filePath}`);
     const result = await this.sandbox.exec(['cat', filePath]);
     if (result.exitCode !== 0) {
       return null;
@@ -152,7 +168,7 @@ export class SandboxRunner {
     const escapedContent = content
       .replace(/\\/g, '\\\\')
       .replace(/'/g, "'\\''");
-    
+    this.emit('file', `write ${filePath}`);
     return this.sandbox.exec(['sh', '-c', `printf '%s' '${escapedContent}' > ${filePath}`]);
   }
 
@@ -179,6 +195,7 @@ export class SandboxRunner {
    * Create directory
    */
   async mkdir(dirPath: string): Promise<ExecResult> {
+    this.emit('file', `mkdir ${dirPath}`);
     return this.sandbox.exec(['mkdir', '-p', dirPath]);
   }
 

@@ -2,6 +2,7 @@ import { auth } from '@clerk/nextjs/server';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, ExternalLink, CheckCircle2, XCircle, Clock, Loader2, FileCode, GitBranch } from 'lucide-react';
+import RunEvents from '../../../../../components/RunEvents';
 
 interface Run {
   id: string;
@@ -145,6 +146,8 @@ export default async function RunDetailPage({ params }: { params: Promise<{ id: 
 
         {/* Right Column */}
         <div className="space-y-6">
+          <RunEvents runId={run.id} />
+
           {/* Policy Result */}
           {run.policyResult && (
             <Section title="Policy Gates">

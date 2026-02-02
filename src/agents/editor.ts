@@ -23,12 +23,18 @@ export async function executeTasks(
   tasks: Task[],
   runner: SandboxRunner,
   config: HavocConfig,
-  context: { language: string; framework: string | null }
+  context: { language: string; framework: string | null },
+  onEvent?: (event: { type: string; message: string; data?: Record<string, unknown> }) => void
 ): Promise<TaskResult[]> {
   const results: TaskResult[] = [];
 
   for (const task of tasks) {
     console.log(`[Editor] Executing task ${task.id}: ${task.description}`);
+    onEvent?.({
+      type: 'task',
+      message: `Task ${task.id}: ${task.description}`,
+      data: { file: task.file, action: task.type }
+    });
     
     try {
       const result = await executeTask(task, runner, config, context);
@@ -36,14 +42,25 @@ export async function executeTasks(
       
       if (!result.success) {
         console.error(`[Editor] Task ${task.id} failed: ${result.error}`);
+        onEvent?.({
+          type: 'error',
+          message: `Task ${task.id} failed: ${result.error}`,
+          data: { file: task.file, action: task.type }
+        });
       }
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       results.push({
         taskId: task.id,
         success: false,
         file: task.file,
         action: 'skipped',
-        error: error instanceof Error ? error.message : String(error)
+        error: message
+      });
+      onEvent?.({
+        type: 'error',
+        message: `Task ${task.id} failed: ${message}`,
+        data: { file: task.file, action: task.type }
       });
     }
   }

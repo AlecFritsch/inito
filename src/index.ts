@@ -14,6 +14,7 @@ import { parseIssueUrl, getInstallationId, getAppInstallations } from './github/
 import { getIssue } from './github/api.js';
 import { runPipeline } from './pipeline.js';
 import { checkDocker, checkSandboxImage } from './sandbox/manager.js';
+import { getRunEvents } from './run-events.js';
 
 /**
  * Start the Fastify server
@@ -125,6 +126,12 @@ async function startServer() {
       startedAt: run.startedAt,
       completedAt: run.completedAt
     };
+  });
+
+  // Get run events (live feed)
+  app.get('/api/runs/:id/events', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    return { events: getRunEvents(id) };
   });
 
   // Get run intent card endpoint
