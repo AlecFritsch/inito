@@ -1,6 +1,6 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
-import { eq, desc, and, sql } from 'drizzle-orm';
+import { eq, desc, and, or, isNull, sql } from 'drizzle-orm';
 import * as schema from './schema.js';
 import { env } from '../config.js';
 
@@ -148,7 +148,10 @@ export async function getRunsByUser(userId: string, limit: number = 50): Promise
   const database = getDb();
   return database.select()
     .from(schema.runs)
-    .where(eq(schema.runs.userId, userId))
+    .where(or(
+      eq(schema.runs.userId, userId),
+      isNull(schema.runs.userId)
+    ))
     .orderBy(desc(schema.runs.startedAt))
     .limit(limit);
 }
@@ -183,7 +186,10 @@ export async function getUserRunStats(userId: string): Promise<{
     avgConfidence: sql<number>`coalesce(avg(confidence), 0)::real`,
   })
   .from(schema.runs)
-  .where(eq(schema.runs.userId, userId));
+  .where(or(
+    eq(schema.runs.userId, userId),
+    isNull(schema.runs.userId)
+  ));
   
   return stats || { total: 0, successful: 0, failed: 0, avgConfidence: 0 };
 }
