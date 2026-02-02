@@ -120,6 +120,10 @@ export async function commitAndPush(
   // Stage all changes
   await git.add('.');
   
+  // Ensure git identity is set for commit
+  await git.addConfig('user.name', 'Havoc');
+  await git.addConfig('user.email', 'havoc@usehavoc.com');
+  
   // Commit
   await git.commit(message);
   
