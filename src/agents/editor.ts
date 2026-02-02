@@ -2,6 +2,7 @@ import { ask, generateCode } from '../gemini.js';
 import { SandboxRunner } from '../sandbox/runner.js';
 import { Task } from './planner.js';
 import { isFileProtected, HavocConfig } from '../config.js';
+import type { RunEventType } from '../run-events.js';
 import { dirname } from 'path';
 
 /**
@@ -24,7 +25,7 @@ export async function executeTasks(
   runner: SandboxRunner,
   config: HavocConfig,
   context: { language: string; framework: string | null },
-  onEvent?: (event: { type: string; message: string; data?: Record<string, unknown> }) => void
+  onEvent?: (event: { type: RunEventType; message: string; data?: Record<string, unknown> }) => void
 ): Promise<TaskResult[]> {
   const results: TaskResult[] = [];
 

@@ -1,5 +1,6 @@
 import { Sandbox, ExecResult } from './manager.js';
 import { HavocConfig, isCommandAllowed } from '../config.js';
+import type { RunEventType } from '../run-events.js';
 
 /**
  * Safe command runner that respects allowlist
@@ -8,19 +9,19 @@ export class SandboxRunner {
   private sandbox: Sandbox;
   private config: HavocConfig;
   private executedCommands: Array<{ command: string; result: ExecResult }> = [];
-  private onEvent?: (event: { type: string; message: string; data?: Record<string, unknown> }) => void;
+  private onEvent?: (event: { type: RunEventType; message: string; data?: Record<string, unknown> }) => void;
 
   constructor(
     sandbox: Sandbox,
     config: HavocConfig,
-    onEvent?: (event: { type: string; message: string; data?: Record<string, unknown> }) => void
+    onEvent?: (event: { type: RunEventType; message: string; data?: Record<string, unknown> }) => void
   ) {
     this.sandbox = sandbox;
     this.config = config;
     this.onEvent = onEvent;
   }
 
-  private emit(type: string, message: string, data?: Record<string, unknown>) {
+  private emit(type: RunEventType, message: string, data?: Record<string, unknown>) {
     if (this.onEvent) {
       this.onEvent({ type, message, data });
     }
