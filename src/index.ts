@@ -10,7 +10,7 @@ import { env } from './config.js';
 import { initDatabase, getRun, getRecentRuns, getRunsByUser, getUserRepositories, getUserRunStats } from './db/index.js';
 import { registerWebhookRoutes } from './github/webhooks.js';
 import { registerAuthRoutes } from './auth/routes.js';
-import { parseIssueUrl, getInstallationId } from './github/app.js';
+import { parseIssueUrl, getInstallationId, getAppInstallations } from './github/app.js';
 import { getIssue } from './github/api.js';
 import { runPipeline } from './pipeline.js';
 import { checkDocker, checkSandboxImage } from './sandbox/manager.js';
@@ -175,7 +175,7 @@ async function startServer() {
     }));
   });
 
-  // Get user repositories
+  // Get repositories with GitHub App installed
   app.get('/api/repos', async (request, reply) => {
     const userId = request.headers['x-user-id'] as string | undefined;
     
@@ -183,17 +183,27 @@ async function startServer() {
       return reply.status(401).send({ error: 'Unauthorized' });
     }
 
-    const repos = await getUserRepositories(userId);
-    
-    return repos.map(repo => ({
-      id: repo.id,
-      fullName: repo.fullName,
-      owner: repo.owner,
-      name: repo.name,
-      isActive: repo.isActive === 1,
-      installationId: repo.installationId,
-      createdAt: repo.createdAt
-    }));
+    try {
+      // Get repos from GitHub App installations
+      const installations = await getAppInstallations();
+      
+      const allRepos = installations.flatMap(installation => 
+        installation.repos.map(repo => ({
+          id: String(repo.id),
+          fullName: repo.fullName,
+          owner: repo.owner,
+          name: repo.name,
+          isActive: true,
+          installationId: installation.installationId,
+          createdAt: new Date().toISOString()
+        }))
+      );
+      
+      return allRepos;
+    } catch (error) {
+      console.error('Failed to fetch repos:', error);
+      return [];
+    }
   });
 
   // Get user stats

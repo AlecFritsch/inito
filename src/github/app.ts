@@ -175,3 +175,40 @@ export function parseIssueUrl(issueUrl: string): {
     issueNumber: parseInt(match[3], 10)
   };
 }
+
+/**
+ * Get all installations of the GitHub App and their repositories
+ */
+export async function getAppInstallations(): Promise<Array<{
+  installationId: number;
+  account: string;
+  repos: Array<{ id: number; fullName: string; owner: string; name: string }>;
+}>> {
+  try {
+    const app = getAppOctokit();
+    const installations = await app.rest.apps.listInstallations();
+    
+    const results = [];
+    
+    for (const installation of installations.data) {
+      const installationOctokit = await getInstallationOctokit(installation.id);
+      const reposResponse = await installationOctokit.rest.apps.listReposAccessibleToInstallation();
+      
+      results.push({
+        installationId: installation.id,
+        account: installation.account?.login || 'unknown',
+        repos: reposResponse.data.repositories.map(repo => ({
+          id: repo.id,
+          fullName: repo.full_name,
+          owner: repo.owner.login,
+          name: repo.name
+        }))
+      });
+    }
+    
+    return results;
+  } catch (error) {
+    console.error('Failed to get app installations:', error);
+    return [];
+  }
+}
