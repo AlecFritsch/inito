@@ -12,8 +12,7 @@ if [ ! -f .env ]; then
   exit 1
 fi
 
-# Load env vars
-export $(grep -v '^#' .env | xargs)
+# Load env vars (docker-compose reads .env automatically)
 
 # Build and start all services
 echo "📦 Building containers..."
@@ -26,8 +25,9 @@ docker compose -f docker/docker-compose.yml up -d postgres redis
 echo "⏳ Waiting for database..."
 sleep 5
 
-echo "🔄 Running migrations..."
-docker compose -f docker/docker-compose.yml run --rm api npm run db:push
+echo "🔄 Initializing database..."
+docker compose -f docker/docker-compose.yml exec -T postgres psql -U havoc -d havoc -f /docker-entrypoint-initdb.d/init.sql 2>/dev/null || \
+docker compose -f docker/docker-compose.yml exec -T postgres psql -U havoc -d havoc < docker/init.sql
 
 echo "🌐 Starting API and Dashboard..."
 docker compose -f docker/docker-compose.yml up -d api dashboard
