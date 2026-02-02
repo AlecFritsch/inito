@@ -1,5 +1,5 @@
 import { currentUser } from '@clerk/nextjs/server';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight, Activity, CheckCircle, TrendingUp, GitPullRequest } from 'lucide-react';
 import Link from 'next/link';
 
 export default async function DashboardPage() {
@@ -43,75 +43,143 @@ export default async function DashboardPage() {
   ];
 
   return (
-    <div className="p-8 max-w-4xl">
-      <div className="mb-10">
-        <h1 className="text-lg font-medium mb-1">
-          {user?.firstName ? `Welcome, ${user.firstName}` : 'Overview'}
+    <div className="p-8 max-w-5xl">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-xl font-semibold tracking-tight mb-1">
+          {user?.firstName ? `Welcome back, ${user.firstName}` : 'Dashboard'}
         </h1>
-        <p className="text-sm text-muted-foreground">
-          Your Havoc pipeline activity
+        <p className="text-sm text-zinc-500">
+          Your Havoc pipeline activity at a glance
         </p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-4 gap-6 mb-12">
-        <Stat label="Total runs" value={stats.totalRuns} />
-        <Stat label="Successful" value={stats.successfulRuns} />
-        <Stat label="Avg confidence" value={`${stats.avgConfidence}%`} />
-        <Stat label="PRs created" value={stats.prsCreated} />
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+        <StatCard 
+          label="Total Runs" 
+          value={stats.totalRuns} 
+          icon={<Activity className="h-4 w-4" />}
+        />
+        <StatCard 
+          label="Successful" 
+          value={stats.successfulRuns}
+          subtext={`${Math.round((stats.successfulRuns / stats.totalRuns) * 100)}% success rate`}
+          icon={<CheckCircle className="h-4 w-4" />}
+        />
+        <StatCard 
+          label="Avg Confidence" 
+          value={`${stats.avgConfidence}%`}
+          icon={<TrendingUp className="h-4 w-4" />}
+        />
+        <StatCard 
+          label="PRs Created" 
+          value={stats.prsCreated}
+          icon={<GitPullRequest className="h-4 w-4" />}
+        />
       </div>
 
       {/* Recent Runs */}
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm text-muted-foreground uppercase tracking-wide">Recent runs</h2>
-        <Link href="/dashboard/runs" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
-          View all <ArrowUpRight className="h-3 w-3" />
-        </Link>
-      </div>
-      
-      <div className="border border-border rounded-lg divide-y divide-border">
-        {recentRuns.map((run) => (
-          <Link
-            key={run.id}
-            href={`/dashboard/runs/${run.id}`}
-            className="flex items-center justify-between p-4 hover:bg-secondary/30 transition-colors"
+      <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
+          <h2 className="text-sm font-medium text-zinc-300">Recent Runs</h2>
+          <Link 
+            href="/dashboard/runs" 
+            className="text-xs text-zinc-500 hover:text-zinc-300 flex items-center gap-1 transition-colors"
           >
-            <div className="flex items-center gap-4">
-              <StatusDot status={run.status} />
-              <div>
-                <p className="text-sm font-medium">
-                  {run.repo} <span className="text-muted-foreground">#{run.issueNumber}</span>
-                </p>
-                <p className="text-xs text-muted-foreground truncate max-w-md">
-                  {run.issueTitle}
-                </p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-sm font-mono">{run.confidence}%</p>
-              <p className="text-xs text-muted-foreground">
-                {formatTimeAgo(run.createdAt)}
-              </p>
-            </div>
+            View all <ArrowUpRight className="h-3 w-3" />
           </Link>
-        ))}
+        </div>
+        
+        <div className="divide-y divide-zinc-800/50">
+          {recentRuns.map((run) => (
+            <Link
+              key={run.id}
+              href={`/dashboard/runs/${run.id}`}
+              className="flex items-center justify-between px-5 py-4 hover:bg-zinc-800/30 transition-colors"
+            >
+              <div className="flex items-center gap-4">
+                <StatusIndicator status={run.status} />
+                <div>
+                  <p className="text-sm font-medium text-zinc-200">
+                    {run.repo}
+                    <span className="text-zinc-500 font-normal ml-1">#{run.issueNumber}</span>
+                  </p>
+                  <p className="text-xs text-zinc-500 truncate max-w-md mt-0.5">
+                    {run.issueTitle}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right flex items-center gap-6">
+                <ConfidenceBadge confidence={run.confidence} />
+                <span className="text-xs text-zinc-600 min-w-[32px]">
+                  {formatTimeAgo(run.createdAt)}
+                </span>
+              </div>
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string | number }) {
+function StatCard({ 
+  label, 
+  value, 
+  subtext,
+  icon 
+}: { 
+  label: string; 
+  value: string | number;
+  subtext?: string;
+  icon: React.ReactNode;
+}) {
   return (
-    <div>
-      <p className="text-2xl font-medium mb-1">{value}</p>
-      <p className="text-xs text-muted-foreground">{label}</p>
+    <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-5">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">{label}</span>
+        <span className="text-zinc-600">{icon}</span>
+      </div>
+      <p className="text-2xl font-semibold text-zinc-100 tracking-tight">{value}</p>
+      {subtext && (
+        <p className="text-xs text-zinc-600 mt-1">{subtext}</p>
+      )}
     </div>
   );
 }
 
-function StatusDot({ status }: { status: string }) {
-  const color = status === 'done' ? 'bg-foreground' : status === 'failed' ? 'bg-muted-foreground' : 'bg-muted-foreground animate-pulse';
-  return <div className={`w-2 h-2 rounded-full ${color}`} />;
+function StatusIndicator({ status }: { status: string }) {
+  if (status === 'done') {
+    return (
+      <div className="w-2 h-2 rounded-full bg-emerald-500" />
+    );
+  }
+  if (status === 'failed') {
+    return (
+      <div className="w-2 h-2 rounded-full bg-red-500/80" />
+    );
+  }
+  return (
+    <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+  );
+}
+
+function ConfidenceBadge({ confidence }: { confidence: number }) {
+  let colorClass = 'text-zinc-400 bg-zinc-800';
+  if (confidence >= 80) {
+    colorClass = 'text-emerald-400 bg-emerald-500/10';
+  } else if (confidence >= 60) {
+    colorClass = 'text-amber-400 bg-amber-500/10';
+  } else {
+    colorClass = 'text-red-400 bg-red-500/10';
+  }
+  
+  return (
+    <span className={`text-xs font-mono px-2 py-1 rounded-md ${colorClass}`}>
+      {confidence}%
+    </span>
+  );
 }
 
 function formatTimeAgo(date: Date): string {
