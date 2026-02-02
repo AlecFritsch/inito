@@ -145,18 +145,12 @@ Analyze this issue and extract a structured specification. Determine:
 7. Acceptance criteria for completion
 
 ## Output Format
-Respond with a JSON object:
-{
-  "type": "bug" | "feature" | "refactor" | "docs" | "other",
-  "summary": "Brief summary of the change",
-  "requirements": ["requirement 1", "requirement 2"],
-  "affectedAreas": ["area 1", "area 2"],
-  "assumptions": ["assumption 1", "assumption 2"],
-  "outOfScope": ["item 1", "item 2"],
-  "acceptanceCriteria": ["criteria 1", "criteria 2"]
-}`;
+Return ONLY a valid JSON object, no other text, no markdown:
+{"type": "bug", "summary": "...", "requirements": ["..."], "affectedAreas": ["..."], "assumptions": ["..."], "outOfScope": ["..."], "acceptanceCriteria": ["..."]}
 
-  return askJson<IssueSpec>(prompt);
+Valid types: bug, feature, refactor, docs, other`;
+
+  return askJson<IssueSpec>(prompt, 'You are a JSON-only response bot. Return ONLY valid JSON, no explanations.');
 }
 
 /**

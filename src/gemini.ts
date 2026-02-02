@@ -75,28 +75,108 @@ export function parseJsonResponse<T>(response: string): T {
   }
   
   // Fix common JSON issues from LLMs
-  // Remove trailing commas before ] or }
-  cleaned = cleaned.replace(/,(\s*[\]\}])/g, '$1');
-  // Remove comments
-  cleaned = cleaned.replace(/\/\/[^\n]*/g, '');
-  // Fix unescaped newlines in strings (crude but helps)
-  cleaned = cleaned.replace(/(?<!\\)\n(?=[^"]*"[^"]*$)/gm, '\\n');
+  cleaned = fixJsonString(cleaned);
   
   try {
     return JSON.parse(cleaned) as T;
   } catch (e) {
-    console.error('[Gemini] JSON parse error. Raw response:', response.substring(0, 500));
-    console.error('[Gemini] Cleaned:', cleaned.substring(0, 500));
-    throw e;
+    console.error('[Gemini] JSON parse error. Attempting recovery...');
+    
+    // Try more aggressive fixes
+    const recovered = aggressiveJsonFix(cleaned);
+    try {
+      return JSON.parse(recovered) as T;
+    } catch (e2) {
+      console.error('[Gemini] Recovery failed. Raw:', response.substring(0, 300));
+      throw new Error(`JSON parse failed: ${e instanceof Error ? e.message : e}`);
+    }
   }
 }
 
 /**
- * Ask Gemini and parse JSON response
+ * Fix common JSON issues
  */
-export async function askJson<T>(prompt: string, systemInstruction?: string): Promise<T> {
-  const response = await ask(prompt, systemInstruction);
-  return parseJsonResponse<T>(response);
+function fixJsonString(json: string): string {
+  let fixed = json;
+  
+  // Remove trailing commas before ] or }
+  fixed = fixed.replace(/,(\s*[\]\}])/g, '$1');
+  
+  // Remove single-line comments
+  fixed = fixed.replace(/\/\/[^\n]*/g, '');
+  
+  // Remove multi-line comments
+  fixed = fixed.replace(/\/\*[\s\S]*?\*\//g, '');
+  
+  // Fix unescaped newlines inside strings
+  fixed = fixed.replace(/"([^"\\]*(?:\\.[^"\\]*)*)"/g, (match) => {
+    return match.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
+  });
+  
+  return fixed;
+}
+
+/**
+ * More aggressive JSON fixing for malformed responses
+ */
+function aggressiveJsonFix(json: string): string {
+  let fixed = json;
+  
+  // Try to fix unterminated strings by finding the last valid position
+  // Remove everything after the last complete key-value pair
+  const lastBrace = fixed.lastIndexOf('}');
+  const lastBracket = fixed.lastIndexOf(']');
+  const lastValid = Math.max(lastBrace, lastBracket);
+  
+  if (lastValid > 0) {
+    fixed = fixed.substring(0, lastValid + 1);
+  }
+  
+  // Balance braces
+  const openBraces = (fixed.match(/\{/g) || []).length;
+  const closeBraces = (fixed.match(/\}/g) || []).length;
+  const openBrackets = (fixed.match(/\[/g) || []).length;
+  const closeBrackets = (fixed.match(/\]/g) || []).length;
+  
+  // Add missing closing braces/brackets
+  for (let i = 0; i < openBraces - closeBraces; i++) {
+    fixed += '}';
+  }
+  for (let i = 0; i < openBrackets - closeBrackets; i++) {
+    fixed += ']';
+  }
+  
+  // Fix trailing commas again after modifications
+  fixed = fixed.replace(/,(\s*[\]\}])/g, '$1');
+  
+  return fixed;
+}
+
+/**
+ * Ask Gemini and parse JSON response with retries
+ */
+export async function askJson<T>(prompt: string, systemInstruction?: string, retries = 2): Promise<T> {
+  let lastError: Error | null = null;
+  
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const enhancedPrompt = i > 0 
+        ? `${prompt}\n\nIMPORTANT: Return ONLY valid JSON. No markdown, no comments, no extra text.`
+        : prompt;
+      
+      const response = await ask(enhancedPrompt, systemInstruction);
+      return parseJsonResponse<T>(response);
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e));
+      console.error(`[Gemini] JSON attempt ${i + 1} failed:`, lastError.message);
+      
+      if (i < retries) {
+        await new Promise(r => setTimeout(r, 1000)); // Wait before retry
+      }
+    }
+  }
+  
+  throw lastError || new Error('JSON parsing failed');
 }
 
 /**

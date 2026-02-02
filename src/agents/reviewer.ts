@@ -84,28 +84,14 @@ Perform a comprehensive code review. Consider:
 7. Is the test coverage adequate?
 
 ## Output Format
-Respond with a JSON object:
-{
-  "summary": "Brief summary of the review findings",
-  "issues": [
-    {"severity": "low|medium|high|critical", "file": "path/to/file", "line": 42, "message": "Description"}
-  ],
-  "suggestions": [
-    {"severity": "low|medium|high", "file": "path/to/file", "message": "Suggestion"}
-  ],
-  "risks": [
-    {"severity": "low|medium|high|critical", "message": "Risk description"}
-  ],
-  "overallAssessment": "approve|request_changes|needs_discussion",
-  "confidence": 85
-}
+Return ONLY valid JSON, no markdown:
+{"summary": "...", "issues": [], "suggestions": [], "risks": [], "overallAssessment": "approve", "confidence": 85}
 
-Be critical but fair. The confidence score (0-100) reflects how confident you are that:
-- The change correctly solves the issue
-- The code is production-ready
-- No regressions will occur`;
+Valid assessments: approve, request_changes, needs_discussion
+Confidence: 0-100 integer
+Keep all text SHORT and simple. No special characters.`;
 
-  return askJson<ReviewResult>(prompt);
+  return askJson<ReviewResult>(prompt, 'Return ONLY valid JSON. No explanations.');
 }
 
 /**

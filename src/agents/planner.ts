@@ -71,31 +71,13 @@ Create a detailed implementation plan with specific tasks. Each task should:
 4. List dependencies on other tasks
 
 ## Output Format
-Respond with a JSON object:
-{
-  "summary": "Brief summary of the plan",
-  "approach": "High-level approach description",
-  "tasks": [
-    {
-      "id": 1,
-      "type": "modify",
-      "file": "src/example.ts",
-      "description": "Short description",
-      "details": "Detailed instructions for what to change",
-      "dependencies": []
-    }
-  ],
-  "testStrategy": "How to test the changes",
-  "risks": ["potential risk 1", "potential risk 2"]
-}
+Return ONLY valid JSON, no markdown, no explanations:
+{"summary": "...", "approach": "...", "tasks": [{"id": 1, "type": "modify", "file": "src/example.ts", "description": "...", "details": "...", "dependencies": []}], "testStrategy": "...", "risks": ["..."]}
 
-Important:
-- Order tasks by dependency (no forward references)
-- Include tests for all significant changes
-- Keep tasks focused and atomic
-- Use real file paths based on the codebase structure`;
+Valid task types: create, modify, delete, test
+Keep descriptions SHORT (under 100 chars). No special characters in strings.`;
 
-  return askJson<Plan>(prompt);
+  return askJson<Plan>(prompt, 'Return ONLY valid JSON. No markdown code blocks. No explanations.');
 }
 
 /**
