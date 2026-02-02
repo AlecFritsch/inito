@@ -46,7 +46,7 @@ export default async function ReposPage() {
           <p className="text-sm text-zinc-500">Connected GitHub repositories</p>
         </div>
         <a
-          href="https://github.com/apps/havoc-app/installations/new"
+          href="https://github.com/apps/havocapp/installations/new"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 px-4 py-2 bg-white text-black text-sm font-medium rounded-lg hover:bg-zinc-200 transition-colors"
@@ -121,7 +121,7 @@ function EmptyState() {
           Install the Havoc GitHub App on your repositories to get started.
         </p>
         <a
-          href="https://github.com/apps/havoc-app/installations/new"
+          href="https://github.com/apps/havocapp/installations/new"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 px-4 py-2 bg-white text-black text-sm font-medium rounded-lg hover:bg-zinc-200 transition-colors"
