@@ -67,11 +67,10 @@ export async function createSandbox(config: SandboxConfig): Promise<Sandbox> {
       ReadonlyRootfs: false,
       AutoRemove: false
     },
-    User: 'havoc',
     Env: [
-      'HOME=/home/havoc',
-      'NPM_CONFIG_PREFIX=/home/havoc/.npm-global',
-      `PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/havoc/.npm-global/bin`
+      'HOME=/root',
+      'NPM_CONFIG_PREFIX=/root/.npm-global',
+      `PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/.npm-global/bin`
     ]
   });
 
