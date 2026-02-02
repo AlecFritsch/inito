@@ -23,7 +23,7 @@ export async function ask(prompt: string, systemInstruction?: string): Promise<s
   const ai = getClient();
   
   const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash-preview-05-20',
+    model: 'gemini-2.5-flash',
     contents: prompt,
     config: {
       systemInstruction: systemInstruction || 'You are an expert software engineer assistant.',
@@ -287,7 +287,7 @@ export async function chat(
   }));
 
   const chatSession = ai.chats.create({
-    model: 'gemini-2.5-flash-preview-05-20',
+    model: 'gemini-2.5-flash',
     history,
     config: {
       systemInstruction: systemInstruction || 'You are an expert software engineer assistant.',
@@ -310,7 +310,7 @@ export async function* askStream(
   const ai = getClient();
   
   const response = await ai.models.generateContentStream({
-    model: 'gemini-2.5-flash-preview-05-20',
+    model: 'gemini-2.5-flash',
     contents: prompt,
     config: {
       systemInstruction: systemInstruction || 'You are an expert software engineer assistant.',
@@ -331,7 +331,7 @@ export async function countTokens(text: string): Promise<number> {
   const ai = getClient();
   
   const result = await ai.models.countTokens({
-    model: 'gemini-2.5-flash-preview-05-20',
+    model: 'gemini-2.5-flash',
     contents: text,
   });
   
