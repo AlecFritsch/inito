@@ -185,6 +185,7 @@ ${task.details}
 - Apply the requested changes to the file
 - Maintain the existing code style
 - Keep all existing functionality unless explicitly asked to change it
+- Your output MUST differ from the input if changes are requested
 - Output ONLY the complete modified file content, no explanations
 
 ## Output
@@ -201,6 +202,36 @@ Return the complete modified file:`;
       lines.pop(); // Remove closing ```
     }
     cleanedCode = lines.join('\n');
+  }
+
+  const normalize = (value: string) => value.replace(/\r\n/g, '\n').trim();
+
+  // If no changes, retry with stronger instruction
+  if (normalize(cleanedCode) === normalize(existingContent)) {
+    const retryPrompt = `${prompt}
+
+IMPORTANT: Your previous output did not change the file. You MUST apply a change now.`;
+    const retryCode = await ask(retryPrompt);
+    let retryCleaned = retryCode.trim();
+    if (retryCleaned.startsWith('```')) {
+      const lines = retryCleaned.split('\n');
+      lines.shift();
+      if (lines[lines.length - 1] === '```') {
+        lines.pop();
+      }
+      retryCleaned = lines.join('\n');
+    }
+    cleanedCode = retryCleaned;
+  }
+
+  if (normalize(cleanedCode) === normalize(existingContent)) {
+    return {
+      taskId: task.id,
+      success: false,
+      file: task.file,
+      action: 'skipped',
+      error: 'No changes produced by model for modify task'
+    };
   }
 
   // Write the modified file
