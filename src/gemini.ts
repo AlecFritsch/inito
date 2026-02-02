@@ -64,13 +64,31 @@ export function parseJsonResponse<T>(response: string): T {
   
   cleaned = cleaned.trim();
   
-  // Try to find JSON object in the response
-  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-  if (jsonMatch) {
-    cleaned = jsonMatch[0];
+  // Try to find JSON object or array in the response
+  const jsonObjMatch = cleaned.match(/\{[\s\S]*\}/);
+  const jsonArrMatch = cleaned.match(/\[[\s\S]*\]/);
+  
+  if (jsonObjMatch) {
+    cleaned = jsonObjMatch[0];
+  } else if (jsonArrMatch) {
+    cleaned = jsonArrMatch[0];
   }
   
-  return JSON.parse(cleaned) as T;
+  // Fix common JSON issues from LLMs
+  // Remove trailing commas before ] or }
+  cleaned = cleaned.replace(/,(\s*[\]\}])/g, '$1');
+  // Remove comments
+  cleaned = cleaned.replace(/\/\/[^\n]*/g, '');
+  // Fix unescaped newlines in strings (crude but helps)
+  cleaned = cleaned.replace(/(?<!\\)\n(?=[^"]*"[^"]*$)/gm, '\\n');
+  
+  try {
+    return JSON.parse(cleaned) as T;
+  } catch (e) {
+    console.error('[Gemini] JSON parse error. Raw response:', response.substring(0, 500));
+    console.error('[Gemini] Cleaned:', cleaned.substring(0, 500));
+    throw e;
+  }
 }
 
 /**
