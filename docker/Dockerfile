@@ -27,6 +27,9 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+# Install git for cloning repositories
+RUN apk add --no-cache git
+
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 havoc
