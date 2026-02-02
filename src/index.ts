@@ -247,9 +247,9 @@ program
   .description('The Trust Layer for AI-Generated Code')
   .version('1.0.0');
 
-// Server command
+// Server command (for self-hosting only - not shown in main help)
 program
-  .command('server')
+  .command('server', { hidden: true })
   .description('Start the Havoc API server')
   .option('--skip-docker-check', 'Skip Docker prerequisite check')
   .action(async (options: { skipDockerCheck?: boolean }) => {
