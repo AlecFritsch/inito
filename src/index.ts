@@ -454,7 +454,16 @@ program
     const os = await import('os');
     const readline = await import('readline');
 
-    console.log(chalk.cyan('\n🌀 Havoc CLI Login\n'));
+    // Cool banner
+    console.log(chalk.cyan(`
+    ██╗  ██╗ █████╗ ██╗   ██╗ ██████╗  ██████╗
+    ██║  ██║██╔══██╗██║   ██║██╔═══██╗██╔════╝
+    ███████║███████║██║   ██║██║   ██║██║     
+    ██╔══██║██╔══██║╚██╗ ██╔╝██║   ██║██║     
+    ██║  ██║██║  ██║ ╚████╔╝ ╚██████╔╝╚██████╗
+    ╚═╝  ╚═╝╚═╝  ╚═╝  ╚═══╝   ╚═════╝  ╚═════╝
+    `));
+    console.log(chalk.dim('    The Trust Layer for AI-Generated Code\n'));
 
     const configDir = path.join(os.homedir(), '.havoc');
     const tokenFile = path.join(configDir, 'token');
@@ -536,7 +545,19 @@ program
       fs.writeFileSync(tokenFile, accessToken, { mode: 0o600 });
 
       console.log(chalk.green('\n✅ Logged in successfully!\n'));
-      console.log(chalk.dim(`Token saved to ${tokenFile}\n`));
+      
+      // Show next steps
+      console.log(chalk.bold('🚀 Quick Start:\n'));
+      console.log(chalk.white('  1. Go to a GitHub issue you want to fix'));
+      console.log(chalk.white('  2. Run: ') + chalk.cyan('havoc run <issue-url>'));
+      console.log(chalk.white('  3. Watch Havoc create a PR for you!\n'));
+      
+      console.log(chalk.dim('─'.repeat(50)));
+      console.log(chalk.dim('\nOther commands:'));
+      console.log(chalk.dim('  havoc init     Create .havoc.yaml config'));
+      console.log(chalk.dim('  havoc status   Check run status'));
+      console.log(chalk.dim('  havoc whoami   Show current user'));
+      console.log(chalk.dim('  havoc logout   Log out\n'));
 
     } catch (error) {
       spinner.fail('Failed to login');
@@ -593,19 +614,29 @@ program
     }
 
     const token = fs.readFileSync(tokenFile, 'utf-8');
+    const spinner = ora('Fetching user info...').start();
 
     try {
-      const response = await fetch(`${env.apiUrl || 'http://localhost:3001'}/api/auth/validate`, {
+      const response = await fetch(`${env.apiUrl}/api/auth/validate`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       const result = await response.json() as any;
 
       if (result.valid) {
-        console.log(chalk.green(`\n✅ Logged in as user ${result.userId}\n`));
+        spinner.stop();
+        console.log(chalk.cyan('\n🌀 Havoc Account\n'));
+        console.log(chalk.dim('─'.repeat(40)));
+        console.log(`  ${chalk.bold('User ID:')}    ${result.userId}`);
+        console.log(`  ${chalk.bold('API:')}        ${env.apiUrl}`);
+        console.log(`  ${chalk.bold('Status:')}     ${chalk.green('● Connected')}`);
+        console.log(chalk.dim('─'.repeat(40)));
+        console.log('');
       } else {
+        spinner.fail('Token invalid');
         console.log(chalk.yellow('\n⚠️  Token invalid. Run `havoc login` to re-authenticate.\n'));
       }
     } catch (error) {
+      spinner.fail('Connection failed');
       console.log(chalk.red(`\n❌ Error: ${error instanceof Error ? error.message : error}\n`));
     }
   });
