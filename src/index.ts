@@ -7,7 +7,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import { nanoid } from 'nanoid';
 import { env } from './config.js';
-import { initDatabase, getRun, getRecentRuns } from './db/index.js';
+import { initDatabase, getRun, getRecentRuns, getRunsByUser, getUserRepositories, getUserRunStats } from './db/index.js';
 import { registerWebhookRoutes } from './github/webhooks.js';
 import { registerAuthRoutes } from './auth/routes.js';
 import { parseIssueUrl, getInstallationId } from './github/app.js';
@@ -54,6 +54,7 @@ async function startServer() {
 
   // Manual run trigger endpoint
   app.post('/api/runs', async (request, reply) => {
+    const userId = request.headers['x-user-id'] as string | undefined;
     const body = request.body as {
       repo: string;
       issue_number: number;
@@ -64,9 +65,6 @@ async function startServer() {
       return reply.status(400).send({ error: 'Missing repo or issue_number' });
     }
     
-    // Template is optional, defaults to auto-detect based on issue content
-    const template = body.template;
-
     const [owner, repo] = body.repo.split('/');
     if (!owner || !repo) {
       return reply.status(400).send({ error: 'Invalid repo format. Use owner/repo' });
@@ -86,13 +84,14 @@ async function startServer() {
       issueNumber: issue.number,
       issueTitle: issue.title,
       issueBody: issue.body,
-      installationId: installationId || undefined
+      installationId: installationId || undefined,
+      userId
     }).catch(error => {
       console.error(`Pipeline error:`, error);
     });
 
     return reply.status(202).send({
-      run_id: runId,
+      runId,
       status: 'started',
       message: 'Pipeline started'
     });
@@ -110,14 +109,21 @@ async function startServer() {
     return {
       id: run.id,
       repo: run.repo,
-      issue_number: run.issueNumber,
+      issueNumber: run.issueNumber,
+      issueTitle: run.issueTitle,
+      issueBody: run.issueBody,
       status: run.status,
       confidence: run.confidence,
-      pr_url: run.prUrl,
-      pr_number: run.prNumber,
+      prUrl: run.prUrl,
+      prNumber: run.prNumber,
+      branch: run.branch,
+      intentCard: run.intentCard,
+      plan: run.plan,
+      review: run.review,
+      policyResult: run.policyResult,
       error: run.error,
-      started_at: run.startedAt,
-      completed_at: run.completedAt
+      startedAt: run.startedAt,
+      completedAt: run.completedAt
     };
   });
 
@@ -138,21 +144,74 @@ async function startServer() {
     return run.intentCard;
   });
 
-  // List recent runs endpoint
+  // List runs endpoint (with optional user filter)
   app.get('/api/runs', async (request, reply) => {
-    const { limit } = request.query as { limit?: string };
-    const runs = await getRecentRuns(limit ? parseInt(limit, 10) : 20);
+    const { limit, repo } = request.query as { limit?: string; repo?: string };
+    const userId = request.headers['x-user-id'] as string | undefined;
+    
+    let runs;
+    if (userId) {
+      runs = await getRunsByUser(userId, limit ? parseInt(limit, 10) : 50);
+    } else {
+      runs = await getRecentRuns(limit ? parseInt(limit, 10) : 20);
+    }
+
+    // Filter by repo if specified
+    if (repo) {
+      runs = runs.filter(r => r.repo === repo);
+    }
 
     return runs.map(run => ({
       id: run.id,
       repo: run.repo,
-      issue_number: run.issueNumber,
+      issueNumber: run.issueNumber,
+      issueTitle: run.issueTitle,
       status: run.status,
       confidence: run.confidence,
-      pr_url: run.prUrl,
-      started_at: run.startedAt,
-      completed_at: run.completedAt
+      prUrl: run.prUrl,
+      prNumber: run.prNumber,
+      startedAt: run.startedAt,
+      completedAt: run.completedAt
     }));
+  });
+
+  // Get user repositories
+  app.get('/api/repos', async (request, reply) => {
+    const userId = request.headers['x-user-id'] as string | undefined;
+    
+    if (!userId) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    const repos = await getUserRepositories(userId);
+    
+    return repos.map(repo => ({
+      id: repo.id,
+      fullName: repo.fullName,
+      owner: repo.owner,
+      name: repo.name,
+      isActive: repo.isActive === 1,
+      installationId: repo.installationId,
+      createdAt: repo.createdAt
+    }));
+  });
+
+  // Get user stats
+  app.get('/api/stats', async (request, reply) => {
+    const userId = request.headers['x-user-id'] as string | undefined;
+    
+    if (!userId) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    const stats = await getUserRunStats(userId);
+    
+    return {
+      totalRuns: stats.total,
+      successfulRuns: stats.successful,
+      failedRuns: stats.failed,
+      avgConfidence: Math.round(stats.avgConfidence)
+    };
   });
 
   // Initialize database

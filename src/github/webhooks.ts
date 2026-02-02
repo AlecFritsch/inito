@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { verifyWebhookSignature } from './app.js';
 import { runPipeline } from '../pipeline.js';
+import { getRepositoryByFullName } from '../db/index.js';
 import { nanoid } from 'nanoid';
 
 /**
@@ -89,6 +90,10 @@ async function handleIssueLabeled(event: IssueEvent): Promise<void> {
   
   const runId = nanoid();
   
+  // Try to get userId from repository
+  const repository = await getRepositoryByFullName(event.repository.full_name);
+  const userId = repository?.userId;
+  
   // Start pipeline in background
   runPipeline({
     runId,
@@ -97,7 +102,8 @@ async function handleIssueLabeled(event: IssueEvent): Promise<void> {
     issueNumber: event.issue.number,
     issueTitle: event.issue.title,
     issueBody: event.issue.body || '',
-    installationId: event.installation?.id
+    installationId: event.installation?.id,
+    userId
   }).catch(error => {
     console.error(`[Webhook] Pipeline failed for run ${runId}:`, error);
   });
@@ -119,6 +125,10 @@ async function handleIssueComment(event: IssueCommentEvent): Promise<void> {
   
   const runId = nanoid();
   
+  // Try to get userId from repository
+  const repository = await getRepositoryByFullName(event.repository.full_name);
+  const userId = repository?.userId;
+  
   // Start pipeline in background
   runPipeline({
     runId,
@@ -127,7 +137,8 @@ async function handleIssueComment(event: IssueCommentEvent): Promise<void> {
     issueNumber: event.issue.number,
     issueTitle: event.issue.title,
     issueBody: event.issue.body || '',
-    installationId: event.installation?.id
+    installationId: event.installation?.id,
+    userId
   }).catch(error => {
     console.error(`[Webhook] Pipeline failed for run ${runId}:`, error);
   });

@@ -27,6 +27,7 @@ export interface PipelineInput {
   issueTitle: string;
   issueBody: string;
   installationId?: number;
+  userId?: string;
 }
 
 /**
@@ -47,7 +48,7 @@ export interface PipelineResult {
  */
 export async function runPipeline(input: PipelineInput): Promise<PipelineResult> {
   const runId = input.runId || nanoid();
-  const { owner, repo, issueNumber, issueTitle, issueBody, installationId } = input;
+  const { owner, repo, issueNumber, issueTitle, issueBody, installationId, userId } = input;
   
   console.log(`[Pipeline] Starting run ${runId} for ${owner}/${repo}#${issueNumber}`);
 
@@ -64,6 +65,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
       issueNumber,
       issueTitle,
       issueBody,
+      userId,
       config: {}
     });
     
