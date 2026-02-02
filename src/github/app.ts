@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { Octokit } from 'octokit';
+import crypto from 'crypto';
 import { env } from '../config.js';
 
 /**
@@ -122,7 +123,6 @@ export function verifyWebhookSignature(
     return true;
   }
 
-  const crypto = require('crypto');
   const hmac = crypto.createHmac('sha256', env.githubWebhookSecret);
   const digest = 'sha256=' + hmac.update(payload).digest('hex');
 
