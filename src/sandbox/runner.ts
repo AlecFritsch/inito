@@ -8,17 +8,20 @@ import type { RunEventType } from '../run-events.js';
 export class SandboxRunner {
   private sandbox: Sandbox;
   private config: HavocConfig;
+  private workingDir: string;
   private executedCommands: Array<{ command: string; result: ExecResult }> = [];
   private onEvent?: (event: { type: RunEventType; message: string; data?: Record<string, unknown> }) => void;
 
   constructor(
     sandbox: Sandbox,
     config: HavocConfig,
-    onEvent?: (event: { type: RunEventType; message: string; data?: Record<string, unknown> }) => void
+    onEvent?: (event: { type: RunEventType; message: string; data?: Record<string, unknown> }) => void,
+    workingDir: string = '/workspace'
   ) {
     this.sandbox = sandbox;
     this.config = config;
     this.onEvent = onEvent;
+    this.workingDir = workingDir;
   }
 
   private emit(type: RunEventType, message: string, data?: Record<string, unknown>) {
@@ -45,9 +48,9 @@ export class SandboxRunner {
     // Parse command into array
     const parts = parseCommand(command);
     
-    // Execute in sandbox
+    // Execute in sandbox with working directory
     this.emit('command', command);
-    const result = await this.sandbox.exec(['sh', '-c', command]);
+    const result = await this.sandbox.exec(['sh', '-c', `cd ${this.workingDir} && ${command}`]);
     
     this.executedCommands.push({ command, result });
     
@@ -78,8 +81,8 @@ export class SandboxRunner {
    */
   async installDependencies(): Promise<ExecResult> {
     // Try to detect package manager
-    const checkYarn = await this.sandbox.exec(['test', '-f', 'yarn.lock']);
-    const checkPnpm = await this.sandbox.exec(['test', '-f', 'pnpm-lock.yaml']);
+    const checkYarn = await this.sandbox.exec(['test', '-f', `${this.workingDir}/yarn.lock`]);
+    const checkPnpm = await this.sandbox.exec(['test', '-f', `${this.workingDir}/pnpm-lock.yaml`]);
     
     if (checkPnpm.exitCode === 0) {
       return this.run('pnpm install');
@@ -151,12 +154,8 @@ export class SandboxRunner {
    * Commit changes
    */
   async commit(message: string): Promise<ExecResult> {
-    // Configure git user for commit
-    await this.sandbox.exec(['git', 'config', 'user.email', 'havoc@usehavoc.dev']);
-    await this.sandbox.exec(['git', 'config', 'user.name', 'Havoc']);
-    
     this.emit('command', `git commit -m "${message}"`);
-    return this.sandbox.exec(['git', 'commit', '-m', message]);
+    return this.sandbox.exec(['sh', '-c', `cd ${this.workingDir} && git commit -m "${message}"`]);
   }
 
   /**
@@ -164,7 +163,8 @@ export class SandboxRunner {
    */
   async readFile(filePath: string): Promise<string | null> {
     this.emit('file', `read ${filePath}`);
-    const result = await this.sandbox.exec(['cat', filePath]);
+    const fullPath = filePath.startsWith('/') ? filePath : `${this.workingDir}/${filePath}`;
+    const result = await this.sandbox.exec(['cat', fullPath]);
     if (result.exitCode !== 0) {
       return null;
     }
@@ -180,23 +180,24 @@ export class SandboxRunner {
       .replace(/\\/g, '\\\\')
       .replace(/'/g, "'\\''");
     this.emit('file', `write ${filePath}`);
-    const result = await this.sandbox.exec(['sh', '-c', `printf '%s' '${escapedContent}' > ${filePath}`]);
+    const fullPath = filePath.startsWith('/') ? filePath : `${this.workingDir}/${filePath}`;
+    const result = await this.sandbox.exec(['sh', '-c', `printf '%s' '${escapedContent}' > ${fullPath}`]);
     
     // Verify file was written
     if (result.exitCode === 0) {
-      const verifyResult = await this.sandbox.exec(['test', '-f', filePath]);
+      const verifyResult = await this.sandbox.exec(['test', '-f', fullPath]);
       if (verifyResult.exitCode !== 0) {
-        console.error(`[SandboxRunner] File write verification failed for ${filePath}`);
+        console.error(`[SandboxRunner] File write verification failed for ${fullPath}`);
         return {
           exitCode: 1,
           stdout: '',
-          stderr: `File write verification failed for ${filePath}`
+          stderr: `File write verification failed for ${fullPath}`
         };
       }
       
       // Get file size for debugging
-      const sizeResult = await this.sandbox.exec(['sh', '-c', `wc -c < ${filePath}`]);
-      console.log(`[SandboxRunner] Wrote ${filePath} (${sizeResult.stdout.trim()} bytes)`);
+      const sizeResult = await this.sandbox.exec(['sh', '-c', `wc -c < ${fullPath}`]);
+      console.log(`[SandboxRunner] Wrote ${fullPath} (${sizeResult.stdout.trim()} bytes)`);
     }
     
     return result;
@@ -206,7 +207,8 @@ export class SandboxRunner {
    * List files in directory
    */
   async listFiles(dir: string = '.'): Promise<string[]> {
-    const result = await this.sandbox.exec(['find', dir, '-type', 'f', '-name', '*.ts', '-o', '-name', '*.js', '-o', '-name', '*.tsx', '-o', '-name', '*.jsx']);
+    const fullDir = dir === '.' ? this.workingDir : (dir.startsWith('/') ? dir : `${this.workingDir}/${dir}`);
+    const result = await this.sandbox.exec(['find', fullDir, '-type', 'f', '-name', '*.ts', '-o', '-name', '*.js', '-o', '-name', '*.tsx', '-o', '-name', '*.jsx']);
     if (result.exitCode !== 0) {
       return [];
     }
@@ -217,7 +219,8 @@ export class SandboxRunner {
    * Check if file exists
    */
   async fileExists(filePath: string): Promise<boolean> {
-    const result = await this.sandbox.exec(['test', '-f', filePath]);
+    const fullPath = filePath.startsWith('/') ? filePath : `${this.workingDir}/${filePath}`;
+    const result = await this.sandbox.exec(['test', '-f', fullPath]);
     return result.exitCode === 0;
   }
 
@@ -226,7 +229,8 @@ export class SandboxRunner {
    */
   async mkdir(dirPath: string): Promise<ExecResult> {
     this.emit('file', `mkdir ${dirPath}`);
-    return this.sandbox.exec(['mkdir', '-p', dirPath]);
+    const fullPath = dirPath.startsWith('/') ? dirPath : `${this.workingDir}/${dirPath}`;
+    return this.sandbox.exec(['mkdir', '-p', fullPath]);
   }
 
   /**

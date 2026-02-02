@@ -79,31 +79,60 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     sandbox = await createSandbox({ runId, workspaceDir });
     emitRunEvent(runId, { type: 'log', message: 'Sandbox created' });
     
-    // Clone repository
+    // Clone repository IN THE CONTAINER
     console.log(`[Pipeline] Cloning ${owner}/${repo}...`);
     emitRunEvent(runId, { type: 'status', message: `Cloning ${owner}/${repo}` });
-    git = await cloneRepo(owner, repo, workspaceDir, installationId);
+    
+    // Get auth token
+    let authToken: string;
+    if (installationId) {
+      const { getInstallationToken } = await import('./github/app.js');
+      authToken = await getInstallationToken(installationId);
+    } else {
+      authToken = env.githubToken;
+    }
+    
+    if (!authToken) {
+      throw new Error('No authentication token available');
+    }
+    
+    // Clone directly in the container
+    const cloneUrl = `https://x-access-token:${authToken}@github.com/${owner}/${repo}.git`;
+    await sandbox.exec(['git', 'clone', '--depth', '1', cloneUrl, '/workspace/repo']);
+    await sandbox.exec(['sh', '-c', 'cd /workspace/repo && git config user.email "havoc@usehavoc.dev"']);
+    await sandbox.exec(['sh', '-c', 'cd /workspace/repo && git config user.name "Havoc"']);
     emitRunEvent(runId, { type: 'log', message: 'Repository cloned' });
     
-    // Load configuration
-    const havocConfig = loadHavocConfig(workspaceDir);
-    havocConfig.test_command = detectTestCommand(workspaceDir) || havocConfig.test_command;
+    // Load configuration from container
+    const havocConfigResult = await sandbox.exec(['cat', '/workspace/repo/.havoc.yaml']);
+    const havocConfig = havocConfigResult.exitCode === 0 
+      ? loadHavocConfig(workspaceDir) 
+      : { version: 1, max_iterations: 50, timeout_minutes: 10, test_command: '', min_confidence: 70, min_test_pass_rate: 90, allowed_commands: ['git', 'npm', 'yarn', 'pnpm', 'node', 'npx'], protected_files: ['.env', '.env.*', '*.key', '*.pem', 'secrets.*'] };
     
-    // Create sandbox runner
+    // Detect test command in container
+    const packageJsonResult = await sandbox.exec(['cat', '/workspace/repo/package.json']);
+    if (packageJsonResult.exitCode === 0) {
+      try {
+        const pkg = JSON.parse(packageJsonResult.stdout);
+        if (pkg.scripts?.test) havocConfig.test_command = 'npm test';
+      } catch {}
+    }
+    
+    // Create sandbox runner with updated working directory
     const runner = new SandboxRunner(sandbox, havocConfig, (event) => {
       emitRunEvent(runId, {
         type: event.type,
         message: event.message,
         data: event.data
       });
-    });
+    }, '/workspace/repo');
     
     // Get default branch
     const defaultBranch = await getDefaultBranch(owner, repo, installationId);
     
-    // Create branch for changes
+    // Create branch for changes IN THE CONTAINER
     const branchName = generateBranchName(issueNumber, runId);
-    await createBranch(git, branchName, defaultBranch);
+    await sandbox.exec(['sh', '-c', `cd /workspace/repo && git checkout -b ${branchName}`]);
     console.log(`[Pipeline] Created branch: ${branchName}`);
     emitRunEvent(runId, { type: 'log', message: `Created branch ${branchName}` });
 
@@ -248,10 +277,15 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     emitRunEvent(runId, { type: 'status', message: 'Publishing', data: { status: 'publishing' } });
 
     if (policyResult.passed) {
-      // Commit and push changes
+      // Commit and push changes IN THE CONTAINER
       const commitMessage = generatePRTitle(intentCard);
       await runner.commit(commitMessage);
-      await commitAndPush(git, commitMessage, branchName);
+      
+      // Push from container
+      const pushResult = await sandbox.exec(['sh', '-c', `cd /workspace/repo && git push https://x-access-token:${authToken}@github.com/${owner}/${repo}.git ${branchName}`]);
+      if (pushResult.exitCode !== 0) {
+        throw new Error(`Failed to push: ${pushResult.stderr}`);
+      }
       console.log(`[Pipeline] Pushed changes to ${branchName}`);
       emitRunEvent(runId, { type: 'log', message: `Pushed changes to ${branchName}` });
 
