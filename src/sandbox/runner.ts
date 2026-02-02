@@ -133,8 +133,18 @@ export class SandboxRunner {
    * Stage all changes
    */
   async stageAll(): Promise<ExecResult> {
+    // First check what files git sees
+    const statusResult = await this.sandbox.exec(['git', 'status', '--porcelain']);
+    console.log(`[SandboxRunner] Git status before staging:\n${statusResult.stdout}`);
+    
     this.emit('command', 'git add .');
-    return this.sandbox.exec(['git', 'add', '.']);
+    const addResult = await this.sandbox.exec(['git', 'add', '.']);
+    
+    // Check what was actually staged
+    const stagedResult = await this.sandbox.exec(['git', 'diff', '--cached', '--name-only']);
+    console.log(`[SandboxRunner] Staged files:\n${stagedResult.stdout}`);
+    
+    return addResult;
   }
 
   /**
@@ -170,7 +180,26 @@ export class SandboxRunner {
       .replace(/\\/g, '\\\\')
       .replace(/'/g, "'\\''");
     this.emit('file', `write ${filePath}`);
-    return this.sandbox.exec(['sh', '-c', `printf '%s' '${escapedContent}' > ${filePath}`]);
+    const result = await this.sandbox.exec(['sh', '-c', `printf '%s' '${escapedContent}' > ${filePath}`]);
+    
+    // Verify file was written
+    if (result.exitCode === 0) {
+      const verifyResult = await this.sandbox.exec(['test', '-f', filePath]);
+      if (verifyResult.exitCode !== 0) {
+        console.error(`[SandboxRunner] File write verification failed for ${filePath}`);
+        return {
+          exitCode: 1,
+          stdout: '',
+          stderr: `File write verification failed for ${filePath}`
+        };
+      }
+      
+      // Get file size for debugging
+      const sizeResult = await this.sandbox.exec(['sh', '-c', `wc -c < ${filePath}`]);
+      console.log(`[SandboxRunner] Wrote ${filePath} (${sizeResult.stdout.trim()} bytes)`);
+    }
+    
+    return result;
   }
 
   /**

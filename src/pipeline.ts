@@ -138,28 +138,55 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     console.log(`[Pipeline] Completed ${successfulTasks}/${taskResults.length} tasks`);
     emitRunEvent(runId, { type: 'log', message: `Completed ${successfulTasks}/${taskResults.length} tasks` });
 
+    // Check for unstaged changes first
+    const unstagedDiff = await runner.getGitDiff();
+    console.log(`[Pipeline] Unstaged diff length: ${unstagedDiff.length}`);
+    
     // Stage changes
     await runner.stageAll();
     emitRunEvent(runId, { type: 'log', message: 'Staged changes' });
+    
+    // Get staged diff
     const stagedDiff = await runner.getStagedDiff();
+    console.log(`[Pipeline] Staged diff length: ${stagedDiff.length}`);
+    
     if (!stagedDiff.trim()) {
-      const noChangeMessage = 'No code changes were generated. PR not created.';
-      await updateRunStatus(runId, 'failed', noChangeMessage);
-      emitRunEvent(runId, { type: 'error', message: noChangeMessage });
-      await addIssueComment(
-        owner,
-        repo,
-        issueNumber,
-        `## Havoc Run Failed\n\n❌ ${noChangeMessage}\n\nRun ID: \`${runId}\``,
-        installationId
-      );
+      // Check if there were any task results with diffs
+      const tasksWithDiffs = taskResults.filter(t => t.diff && t.diff.length > 0);
+      console.log(`[Pipeline] Tasks with diffs: ${tasksWithDiffs.length}`);
+      
+      if (tasksWithDiffs.length > 0) {
+        // We have diffs but git doesn't see them - this is a sync issue
+        console.error(`[Pipeline] Sync issue: ${tasksWithDiffs.length} tasks produced diffs but git sees no changes`);
+        const syncMessage = 'Code changes were generated but not properly staged. This may be a sandbox sync issue.';
+        await updateRunStatus(runId, 'failed', syncMessage);
+        emitRunEvent(runId, { type: 'error', message: syncMessage });
+        await addIssueComment(
+          owner,
+          repo,
+          issueNumber,
+          `## Havoc Run Failed\n\n❌ ${syncMessage}\n\nRun ID: \`${runId}\`\n\nDebug: ${tasksWithDiffs.length} tasks completed successfully but changes were not visible to git.`,
+          installationId
+        );
+      } else {
+        const noChangeMessage = 'No code changes were generated. PR not created.';
+        await updateRunStatus(runId, 'failed', noChangeMessage);
+        emitRunEvent(runId, { type: 'error', message: noChangeMessage });
+        await addIssueComment(
+          owner,
+          repo,
+          issueNumber,
+          `## Havoc Run Failed\n\n❌ ${noChangeMessage}\n\nRun ID: \`${runId}\``,
+          installationId
+        );
+      }
 
       return {
         runId,
         success: false,
         confidenceScore: 0,
         policyPassed: false,
-        error: noChangeMessage
+        error: stagedDiff.trim() ? 'Sync issue' : 'No changes generated'
       };
     }
 
