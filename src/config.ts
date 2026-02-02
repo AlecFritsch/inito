@@ -124,9 +124,9 @@ export function loadEnvConfig(): EnvConfig {
     // Other
     logLevel: process.env.LOG_LEVEL || 'info',
     maxConcurrentRuns: parseInt(process.env.MAX_CONCURRENT_RUNS || '3', 10),
-    // URLs
-    apiUrl: process.env.API_URL || 'http://localhost:3001',
-    dashboardUrl: process.env.DASHBOARD_URL || 'http://localhost:3000',
+    // URLs (default to production)
+    apiUrl: process.env.API_URL || 'https://api.usehavoc.com',
+    dashboardUrl: process.env.DASHBOARD_URL || 'https://usehavoc.com',
   };
 }
 

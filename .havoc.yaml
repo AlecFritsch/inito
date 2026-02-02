@@ -1,0 +1,36 @@
+# Havoc Configuration
+# https://usehavoc.dev/docs/config
+
+version: 1
+
+# Maximum iterations for the agent
+max_iterations: 50
+
+# Timeout for the entire run (minutes)
+timeout_minutes: 10
+
+# Test command (auto-detected if not specified)
+# test_command: npm test
+
+# Minimum confidence score to create PR (0-100)
+min_confidence: 70
+
+# Minimum test pass rate to create PR (0-100)
+min_test_pass_rate: 90
+
+# Commands the agent is allowed to run
+allowed_commands:
+  - git
+  - npm
+  - yarn
+  - pnpm
+  - node
+  - npx
+
+# Files the agent should never modify
+protected_files:
+  - .env
+  - .env.*
+  - "*.key"
+  - "*.pem"
+  - secrets.*
