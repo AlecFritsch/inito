@@ -141,6 +141,27 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     // Stage changes
     await runner.stageAll();
     emitRunEvent(runId, { type: 'log', message: 'Staged changes' });
+    const stagedDiff = await runner.getStagedDiff();
+    if (!stagedDiff.trim()) {
+      const noChangeMessage = 'No code changes were generated. PR not created.';
+      await updateRunStatus(runId, 'failed', noChangeMessage);
+      emitRunEvent(runId, { type: 'error', message: noChangeMessage });
+      await addIssueComment(
+        owner,
+        repo,
+        issueNumber,
+        `## Havoc Run Failed\n\n❌ ${noChangeMessage}\n\nRun ID: \`${runId}\``,
+        installationId
+      );
+
+      return {
+        runId,
+        success: false,
+        confidenceScore: 0,
+        policyPassed: false,
+        error: noChangeMessage
+      };
+    }
 
     // === TEST ===
     await updateRunStatus(runId, 'testing');
