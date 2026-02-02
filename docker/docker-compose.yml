@@ -72,6 +72,7 @@ services:
       dockerfile: docker/Dockerfile
     container_name: havoc-api
     restart: unless-stopped
+    user: root
     ports:
       - "3001:3001"
     environment:
