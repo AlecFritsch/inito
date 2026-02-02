@@ -1,6 +1,6 @@
 import Docker from 'dockerode';
 import { mkdirSync, existsSync, rmSync } from 'fs';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { env } from '../config.js';
 
 const docker = new Docker();
@@ -37,14 +37,18 @@ export interface ExecResult {
  * Create a sandbox container for a run
  */
 export async function createSandbox(config: SandboxConfig): Promise<Sandbox> {
-  const { runId, workspaceDir, timeout = env.sandboxTimeout } = config;
+  const { runId, timeout = env.sandboxTimeout } = config;
+  
+  // Convert to absolute path for Docker bind mount
+  const absoluteWorkspaceDir = resolve(config.workspaceDir);
 
   // Ensure workspace directory exists
-  if (!existsSync(workspaceDir)) {
-    mkdirSync(workspaceDir, { recursive: true });
+  if (!existsSync(absoluteWorkspaceDir)) {
+    mkdirSync(absoluteWorkspaceDir, { recursive: true });
   }
 
   console.log(`[Sandbox] Creating container for run ${runId}`);
+  console.log(`[Sandbox] Workspace: ${absoluteWorkspaceDir}`);
 
   // Create container
   const container = await docker.createContainer({
@@ -53,7 +57,7 @@ export async function createSandbox(config: SandboxConfig): Promise<Sandbox> {
     Cmd: ['sleep', 'infinity'],
     WorkingDir: '/workspace',
     HostConfig: {
-      Binds: [`${workspaceDir}:/workspace:rw`],
+      Binds: [`${absoluteWorkspaceDir}:/workspace:rw`],
       Memory: 2 * 1024 * 1024 * 1024, // 2GB
       MemorySwap: 2 * 1024 * 1024 * 1024,
       CpuPeriod: 100000,
@@ -84,12 +88,12 @@ export async function createSandbox(config: SandboxConfig): Promise<Sandbox> {
 
   // Create cleanup function
   const cleanup = async (): Promise<void> => {
-    await cleanupSandbox(containerId, workspaceDir);
+    await cleanupSandbox(containerId, absoluteWorkspaceDir);
   };
 
   return {
     containerId,
-    workspaceDir,
+    workspaceDir: absoluteWorkspaceDir,
     exec,
     cleanup
   };
