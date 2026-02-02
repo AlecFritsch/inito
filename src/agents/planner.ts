@@ -137,25 +137,30 @@ export function sortTasks(tasks: Task[]): Task[] {
  * Format plan for display
  */
 export function formatPlan(plan: Plan): string {
+  const tasks = Array.isArray(plan.tasks) ? plan.tasks : [];
+  const risks = Array.isArray(plan.risks) ? plan.risks : [];
+
   return `## Implementation Plan
 
 ### Summary
-${plan.summary}
+${plan.summary || 'No summary provided.'}
 
 ### Approach
-${plan.approach}
+${plan.approach || 'No approach provided.'}
 
 ### Tasks
-${plan.tasks.map(t => 
-  `${t.id}. **[${t.type.toUpperCase()}]** ${t.file}
-   ${t.description}
-   ${t.dependencies.length > 0 ? `   _Depends on: ${t.dependencies.join(', ')}_` : ''}`
-).join('\n\n')}
+${tasks.length > 0 ? tasks.map(t => {
+  const taskType = typeof t.type === 'string' ? t.type : 'task';
+  const taskDeps = Array.isArray(t.dependencies) ? t.dependencies : [];
+  return `${t.id}. **[${taskType.toUpperCase()}]** ${t.file || 'unknown'}
+   ${t.description || 'No description'}
+   ${taskDeps.length > 0 ? `   _Depends on: ${taskDeps.join(', ')}_` : ''}`;
+}).join('\n\n') : '_No tasks generated_'}
 
 ### Test Strategy
-${plan.testStrategy}
+${plan.testStrategy || 'No test strategy provided.'}
 
 ### Risks
-${plan.risks.map(r => `- ${r}`).join('\n')}
+${risks.length > 0 ? risks.map(r => `- ${r}`).join('\n') : '_No risks identified_'}
 `;
 }

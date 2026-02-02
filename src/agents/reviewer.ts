@@ -111,46 +111,66 @@ export function formatReviewResult(review: ReviewResult): string {
     critical: '🔴'
   };
 
+  const safeUpper = (value: unknown, fallback: string) => {
+    if (typeof value === 'string' && value.length > 0) {
+      return value.toUpperCase();
+    }
+    return fallback;
+  };
+
+  const overall = typeof review.overallAssessment === 'string' ? review.overallAssessment : 'needs_discussion';
+  const overallLabel = safeUpper(overall.replace('_', ' '), 'NEEDS DISCUSSION');
+  const overallEmoji = assessmentEmoji[overall as keyof typeof assessmentEmoji] || '💬';
+  const issues = Array.isArray(review.issues) ? review.issues : [];
+  const suggestions = Array.isArray(review.suggestions) ? review.suggestions : [];
+  const risks = Array.isArray(review.risks) ? review.risks : [];
+
   let output = `## Self-Review
 
 ### Summary
-${review.summary}
+${review.summary || 'No summary provided.'}
 
 ### Overall Assessment
-${assessmentEmoji[review.overallAssessment]} **${review.overallAssessment.replace('_', ' ').toUpperCase()}**
+${overallEmoji} **${overallLabel}**
 
 ### Confidence Score
 **${review.confidence}%**
 
 `;
 
-  if (review.issues.length > 0) {
+  if (issues.length > 0) {
     output += `### Issues Found\n`;
-    for (const issue of review.issues) {
-      output += `${severityEmoji[issue.severity]} **[${issue.severity.toUpperCase()}]**`;
+    for (const issue of issues) {
+      const issueSeverity = typeof issue.severity === 'string' ? issue.severity : 'low';
+      const issueEmoji = severityEmoji[issueSeverity as keyof typeof severityEmoji] || '⚪';
+      output += `${issueEmoji} **[${safeUpper(issueSeverity, 'LOW')}]**`;
       if (issue.file) output += ` \`${issue.file}\``;
       if (issue.line) output += `:${issue.line}`;
       output += `\n   ${issue.message}\n\n`;
     }
   }
 
-  if (review.suggestions.length > 0) {
+  if (suggestions.length > 0) {
     output += `### Suggestions\n`;
-    for (const suggestion of review.suggestions) {
-      output += `${severityEmoji[suggestion.severity]} `;
+    for (const suggestion of suggestions) {
+      const suggestionSeverity = typeof suggestion.severity === 'string' ? suggestion.severity : 'low';
+      const suggestionEmoji = severityEmoji[suggestionSeverity as keyof typeof severityEmoji] || '⚪';
+      output += `${suggestionEmoji} `;
       if (suggestion.file) output += `\`${suggestion.file}\`: `;
       output += `${suggestion.message}\n\n`;
     }
   }
 
-  if (review.risks.length > 0) {
+  if (risks.length > 0) {
     output += `### Potential Risks\n`;
-    for (const risk of review.risks) {
-      output += `${severityEmoji[risk.severity]} **[${risk.severity.toUpperCase()}]** ${risk.message}\n\n`;
+    for (const risk of risks) {
+      const riskSeverity = typeof risk.severity === 'string' ? risk.severity : 'low';
+      const riskEmoji = severityEmoji[riskSeverity as keyof typeof severityEmoji] || '⚪';
+      output += `${riskEmoji} **[${safeUpper(riskSeverity, 'LOW')}]** ${risk.message}\n\n`;
     }
   }
 
-  if (review.issues.length === 0 && review.suggestions.length === 0 && review.risks.length === 0) {
+  if (issues.length === 0 && suggestions.length === 0 && risks.length === 0) {
     output += `\n✨ No issues, suggestions, or risks identified. Code looks good!\n`;
   }
 

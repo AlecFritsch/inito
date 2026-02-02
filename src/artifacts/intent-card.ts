@@ -106,6 +106,17 @@ export function generateIntentCard(
 export function formatIntentCard(card: IntentCard): string {
   const confidenceEmoji = card.confidenceScore >= 80 ? '🟢' : 
                           card.confidenceScore >= 60 ? '🟡' : '🔴';
+  const safeUpper = (value: unknown, fallback: string) => {
+    if (typeof value === 'string' && value.length > 0) {
+      return value.toUpperCase();
+    }
+    return fallback;
+  };
+  const scope = Array.isArray(card.scope) ? card.scope : [];
+  const assumptions = Array.isArray(card.assumptions) ? card.assumptions : [];
+  const filesChanged = Array.isArray(card.filesChanged) ? card.filesChanged : [];
+  const testsAdded = Array.isArray(card.testsAdded) ? card.testsAdded : [];
+  const riskAssessment = Array.isArray(card.riskAssessment) ? card.riskAssessment : [];
 
   return `# 📋 Intent Card
 
@@ -117,15 +128,15 @@ export function formatIntentCard(card: IntentCard): string {
 ${card.issueSummary}
 
 ## Change Type
-\`${card.type.toUpperCase()}\`
+\`${safeUpper(card.type, 'UNKNOWN')}\`
 
 ## Scope and Assumptions
 
 ### Affected Areas
-${card.scope.map(s => `- ${s}`).join('\n')}
+${scope.length > 0 ? scope.map(s => `- ${s}`).join('\n') : '_No areas listed_'}
 
 ### Assumptions
-${card.assumptions.map(a => `- ${a}`).join('\n')}
+${assumptions.length > 0 ? assumptions.map(a => `- ${a}`).join('\n') : '_No assumptions listed_'}
 
 ## Planned Approach
 ${card.approach}
@@ -134,21 +145,21 @@ ${card.approach}
 
 | File | Action | Rationale |
 |------|--------|-----------|
-${card.filesChanged.map(f => `| \`${f.file}\` | ${f.action} | ${f.rationale} |`).join('\n')}
+${filesChanged.length > 0 ? filesChanged.map(f => `| \`${f.file}\` | ${f.action} | ${f.rationale} |`).join('\n') : '| _No files_ | _n/a_ | _n/a_ |'}
 
 ## Tests Added
-${card.testsAdded.length > 0 
-  ? card.testsAdded.map(t => `- \`${t}\``).join('\n')
+${testsAdded.length > 0 
+  ? testsAdded.map(t => `- \`${t}\``).join('\n')
   : '_No new tests added_'}
 
 ## Risk Assessment
 
-${card.riskAssessment.length > 0 
-  ? card.riskAssessment.map(r => {
+${riskAssessment.length > 0 
+  ? riskAssessment.map(r => {
       const emoji = r.severity === 'critical' ? '🔴' : 
                     r.severity === 'high' ? '🟠' :
                     r.severity === 'medium' ? '🟡' : '🟢';
-      return `${emoji} **[${r.severity.toUpperCase()}]** ${r.description}`;
+      return `${emoji} **[${safeUpper(r.severity, 'LOW')}]** ${r.description}`;
     }).join('\n')
   : '✅ No significant risks identified'}
 
